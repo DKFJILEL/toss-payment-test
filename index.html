@@ -5,7 +5,7 @@
     <title>인포맥스(INFOMAX) 결제 시스템</title>
     <script src="https://js.tosspayments.com/v2/standard"></script>
     <style>
-        /* 깔끔한 비즈니스 디자인 추가 */
+        /* 디자인 */
         body { font-family: 'Pretendard', sans-serif; background-color: #f8f9fa; padding: 40px 20px; color: #333; }
         .container { max-width: 450px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
         h2 { text-align: center; color: #0056b3; margin-bottom: 30px; font-size: 24px; }
@@ -64,7 +64,7 @@
         <button id="payment-button">결제하기</button>
 
         <div class="footer">
-            <p>결제 관련 문의: <strong>02-398-4953</strong></p>
+            <p>결제 관련 문의: <strong>02-000-0000</strong></p>
         </div>
     </div>
 
@@ -78,7 +78,7 @@
 
             const amountInput = document.getElementById("amount-input");
 
-            // 금액 변경 시 실시간 위젯 업데이트
+            // 금액 변경 시 실시간 위젯 업데이트 (UI 표시용)
             amountInput.addEventListener("input", async () => {
                 const amount = parseInt(amountInput.value) || 0;
                 await widgets.setAmount({ currency: "KRW", value: amount });
@@ -91,19 +91,27 @@
             ]);
 
             document.getElementById("payment-button").addEventListener("click", async () => {
-                // 필수값 체크
-                const amount = amountInput.value;
+                // 입력값 가져오기
+                const amountValue = amountInput.value;
+                const amount = parseInt(amountValue);
                 const name = document.getElementById("name-input").value;
                 const email = document.getElementById("email-input").value;
-                const phone = document.getElementById("phone-input").value.replace(/[^0-9]/g, ""); // 숫자만 추출
+                const phone = document.getElementById("phone-input").value.replace(/[^0-9]/g, ""); 
 
+                // 1. 필수값 체크 로직
                 if (!amount || amount <= 0) { alert("결제 금액을 정확히 입력해 주세요."); return; }
                 if (!name) { alert("이름을 입력해 주세요."); return; }
                 if (!email) { alert("이메일을 입력해 주세요."); return; }
                 if (phone.length < 10) { alert("연락처를 정확히 입력해 주세요. (하이픈 제외 숫자만)"); return; }
 
-                // 결제 요청
                 try {
+                    // [핵심!] 결제 버튼 클릭 시 현재 금액을 위젯에 최종 전달
+                    await widgets.setAmount({
+                        currency: "KRW",
+                        value: amount,
+                    });
+
+                    // 2. 결제 요청
                     await widgets.requestPayment({
                         orderId: "ORDER_" + new Date().getTime(),
                         orderName: "인포맥스 서비스 이용료",
@@ -115,6 +123,11 @@
                     });
                 } catch (error) {
                     console.error(error);
+                    if (error.code === 'INVALID_CARD_COMPANY') {
+                        alert("결제하실 카드사를 선택해 주세요!");
+                    } else {
+                        alert("결제 진행 중 오류가 발생했습니다: " + (error.message || "다시 시도해 주세요."));
+                    }
                 }
             });
         }
