@@ -5,117 +5,83 @@
     <title>인포맥스(INFOMAX) 결제 시스템</title>
     <script src="https://js.tosspayments.com/v2/standard"></script>
     <style>
-        /* 디자인 */
         body { font-family: 'Pretendard', sans-serif; background-color: #f8f9fa; padding: 40px 20px; color: #333; }
         .container { max-width: 450px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
         h2 { text-align: center; color: #0056b3; margin-bottom: 30px; font-size: 24px; }
-        
         .input-group { margin-bottom: 18px; }
         .input-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; }
-        .input-group label .required { color: #ff4d4f; margin-left: 4px; } /* 필수 표시 */
-        
-        .input-group input { 
-            width: 100%; padding: 12px; box-sizing: border-box; 
-            border: 1px solid #ddd; border-radius: 6px; font-size: 15px;
-            transition: border-color 0.2s;
-        }
-        .input-group input:focus { border-color: #3182f6; outline: none; }
+        .input-group label .required { color: #ff4d4f; margin-left: 4px; }
+        .input-group input { width: 100%; padding: 12px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 6px; font-size: 15px; }
         .input-group .helper-text { font-size: 12px; color: #666; margin-top: 4px; }
-
-        #payment-button { 
-            width: 100%; padding: 16px; background: #3182f6; color: white; 
-            border: none; cursor: pointer; margin-top: 25px; font-size: 16px; 
-            font-weight: bold; border-radius: 8px; transition: background 0.3s;
-        }
-        #payment-button:hover { background: #1b64da; }
-        
+        #payment-button { width: 100%; padding: 16px; background: #3182f6; color: white; border: none; cursor: pointer; margin-top: 25px; font-size: 16px; font-weight: bold; border-radius: 8px; }
         .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 13px; color: #888; }
-        .footer strong { color: #555; }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>인포맥스 결제 정보</h2>
-        
         <div class="input-group">
             <label>결제 금액 (원)<span class="required">*</span></label>
-            <input type="number" id="amount-input" placeholder="금액을 입력하세요">
+            <input type="number" id="amount-input" placeholder="금액을 입력하세요 (예: 50000)">
         </div>
-        
         <div class="input-group">
             <label>이름<span class="required">*</span></label>
             <input type="text" id="name-input" placeholder="성함을 입력해 주세요">
         </div>
-        
         <div class="input-group">
             <label>이메일<span class="required">*</span></label>
             <input type="email" id="email-input" placeholder="example@gmail.com">
         </div>
-        
         <div class="input-group">
             <label>연락처<span class="required">*</span></label>
-            <input type="tel" id="phone-input" placeholder="숫자만 입력 (예: 01012345678)">
+            <input type="tel" id="phone-input" placeholder="숫자만 입력">
             <p class="helper-text">※ 하이픈(-) 없이 숫자만 입력해 주세요.</p>
         </div>
-
         <div id="payment-method"></div>
         <div id="agreement"></div>
-        
         <button id="payment-button">결제하기</button>
-
         <div class="footer">
             <p>결제 관련 문의: <strong>02-000-0000</strong></p>
         </div>
     </div>
 
-<script>
-    main();
-    async function main() {
+    <script>
         const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
-        const tossPayments = TossPayments(clientKey);
         const customerKey = "USER_" + Math.random().toString(36).substring(2, 10);
+        const tossPayments = TossPayments(clientKey);
         const widgets = tossPayments.widgets({ customerKey });
 
-        const amountInput = document.getElementById("amount-input");
+        // 1. 위젯 먼저 그려놓기 (금액 0으로 시작해도 틀은 뜹니다)
+        async function renderWidgets() {
+            await Promise.all([
+                widgets.renderPaymentMethods({ selector: "#payment-method", variantKey: "DEFAULT" }),
+                widgets.renderAgreement({ selector: "#agreement", variantKey: "AGREEMENT" })
+            ]);
+        }
+        renderWidgets();
 
-        // 1. 초기 렌더링 (금액이 없어도 일단 틀은 그리도록 함)
-        await Promise.all([
-            widgets.renderPaymentMethods({ selector: "#payment-method", variantKey: "DEFAULT" }),
-            widgets.renderAgreement({ selector: "#agreement", variantKey: "AGREEMENT" })
-        ]);
-
-        // 금액 입력 시 실시간 업데이트
-        amountInput.addEventListener("input", async () => {
-            const amount = parseInt(amountInput.value) || 0;
-            if (amount > 0) {
-                await widgets.setAmount({ currency: "KRW", value: amount });
+        // 2. 금액 입력할 때마다 토스한테 "이 금액이야!"라고 계속 말해주기
+        document.getElementById("amount-input").addEventListener("blur", async (e) => {
+            const value = parseInt(e.target.value);
+            if (value > 0) {
+                await widgets.setAmount({ currency: "KRW", value: value });
             }
         });
 
+        // 3. 결제 버튼 클릭
         document.getElementById("payment-button").addEventListener("click", async () => {
-            const amountValue = amountInput.value;
-            const amount = parseInt(amountValue);
+            const amount = parseInt(document.getElementById("amount-input").value);
             const name = document.getElementById("name-input").value;
             const email = document.getElementById("email-input").value;
-            const phone = document.getElementById("phone-input").value.replace(/[^0-9]/g, ""); 
+            const phone = document.getElementById("phone-input").value.replace(/[^0-9]/g, "");
 
-            // 필수값 체크
-            if (!amount || amount <= 0) { alert("결제 금액을 정확히 입력해 주세요."); return; }
-            if (!name) { alert("이름을 입력해 주세요."); return; }
-            if (!email) { alert("이메일을 입력해 주세요."); return; }
-            if (phone.length < 10) { alert("연락처를 정확히 입력해 주세요."); return; }
+            if (!amount || amount <= 0) return alert("결제 금액을 입력해 주세요.");
+            if (!name || !email || !phone) return alert("모든 필수 정보를 입력해 주세요.");
 
             try {
-                // [해결책] 버튼 클릭 시점에 확실하게 다시 설정
-                await widgets.setAmount({
-                    currency: "KRW",
-                    value: amount,
-                });
+                // 결제 요청 전 마지막으로 금액 한 번 더 쐐기 박기!
+                await widgets.setAmount({ currency: "KRW", value: amount });
 
-                // 위젯이 금액을 인식할 수 있게 아주 잠깐(0.1초) 기다려줍니다.
-                await new Promise(resolve => setTimeout(resolve, 100));
-
-                // 결제 요청
                 await widgets.requestPayment({
                     orderId: "ORDER_" + new Date().getTime(),
                     orderName: "인포맥스 서비스 이용료",
@@ -125,19 +91,11 @@
                     customerName: name,
                     customerMobilePhone: phone,
                 });
-            } catch (error) {
-                console.error(error);
-                // 에러 메시지에 따른 대응
-                if (error.message && error.message.includes("setAmount")) {
-                    alert("금액 설정에 오류가 있습니다. 금액을 다시 입력해 보세요.");
-                } else if (error.code === 'INVALID_CARD_COMPANY') {
-                    alert("결제하실 카드사를 선택해 주세요!");
-                } else {
-                    alert("결제 중 오류: " + (error.message || "다시 시도해 주세요."));
-                }
+            } catch (err) {
+                console.error(err);
+                alert("결제창을 띄우지 못했습니다. 카드사를 선택했는지 확인해 주세요.");
             }
         });
-    }
-</script>
+    </script>
 </body>
 </html>
