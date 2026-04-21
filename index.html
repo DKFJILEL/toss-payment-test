@@ -68,69 +68,76 @@
         </div>
     </div>
 
-    <script>
-        main();
-        async function main() {
-            const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
-            const tossPayments = TossPayments(clientKey);
-            const customerKey = "USER_" + Math.random().toString(36).substring(2, 10);
-            const widgets = tossPayments.widgets({ customerKey });
+<script>
+    main();
+    async function main() {
+        const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
+        const tossPayments = TossPayments(clientKey);
+        const customerKey = "USER_" + Math.random().toString(36).substring(2, 10);
+        const widgets = tossPayments.widgets({ customerKey });
 
-            const amountInput = document.getElementById("amount-input");
+        const amountInput = document.getElementById("amount-input");
 
-            // 금액 변경 시 실시간 위젯 업데이트 (UI 표시용)
-            amountInput.addEventListener("input", async () => {
-                const amount = parseInt(amountInput.value) || 0;
+        // 1. 초기 렌더링 (금액이 없어도 일단 틀은 그리도록 함)
+        await Promise.all([
+            widgets.renderPaymentMethods({ selector: "#payment-method", variantKey: "DEFAULT" }),
+            widgets.renderAgreement({ selector: "#agreement", variantKey: "AGREEMENT" })
+        ]);
+
+        // 금액 입력 시 실시간 업데이트
+        amountInput.addEventListener("input", async () => {
+            const amount = parseInt(amountInput.value) || 0;
+            if (amount > 0) {
                 await widgets.setAmount({ currency: "KRW", value: amount });
-            });
+            }
+        });
 
-            // 위젯 렌더링
-            await Promise.all([
-                widgets.renderPaymentMethods({ selector: "#payment-method", variantKey: "DEFAULT" }),
-                widgets.renderAgreement({ selector: "#agreement", variantKey: "AGREEMENT" })
-            ]);
+        document.getElementById("payment-button").addEventListener("click", async () => {
+            const amountValue = amountInput.value;
+            const amount = parseInt(amountValue);
+            const name = document.getElementById("name-input").value;
+            const email = document.getElementById("email-input").value;
+            const phone = document.getElementById("phone-input").value.replace(/[^0-9]/g, ""); 
 
-            document.getElementById("payment-button").addEventListener("click", async () => {
-                // 입력값 가져오기
-                const amountValue = amountInput.value;
-                const amount = parseInt(amountValue);
-                const name = document.getElementById("name-input").value;
-                const email = document.getElementById("email-input").value;
-                const phone = document.getElementById("phone-input").value.replace(/[^0-9]/g, ""); 
+            // 필수값 체크
+            if (!amount || amount <= 0) { alert("결제 금액을 정확히 입력해 주세요."); return; }
+            if (!name) { alert("이름을 입력해 주세요."); return; }
+            if (!email) { alert("이메일을 입력해 주세요."); return; }
+            if (phone.length < 10) { alert("연락처를 정확히 입력해 주세요."); return; }
 
-                // 1. 필수값 체크 로직
-                if (!amount || amount <= 0) { alert("결제 금액을 정확히 입력해 주세요."); return; }
-                if (!name) { alert("이름을 입력해 주세요."); return; }
-                if (!email) { alert("이메일을 입력해 주세요."); return; }
-                if (phone.length < 10) { alert("연락처를 정확히 입력해 주세요. (하이픈 제외 숫자만)"); return; }
+            try {
+                // [해결책] 버튼 클릭 시점에 확실하게 다시 설정
+                await widgets.setAmount({
+                    currency: "KRW",
+                    value: amount,
+                });
 
-                try {
-                    // [핵심!] 결제 버튼 클릭 시 현재 금액을 위젯에 최종 전달
-                    await widgets.setAmount({
-                        currency: "KRW",
-                        value: amount,
-                    });
+                // 위젯이 금액을 인식할 수 있게 아주 잠깐(0.1초) 기다려줍니다.
+                await new Promise(resolve => setTimeout(resolve, 100));
 
-                    // 2. 결제 요청
-                    await widgets.requestPayment({
-                        orderId: "ORDER_" + new Date().getTime(),
-                        orderName: "인포맥스 서비스 이용료",
-                        successUrl: window.location.origin + "/success.html",
-                        failUrl: window.location.origin + "/fail.html",
-                        customerEmail: email,
-                        customerName: name,
-                        customerMobilePhone: phone,
-                    });
-                } catch (error) {
-                    console.error(error);
-                    if (error.code === 'INVALID_CARD_COMPANY') {
-                        alert("결제하실 카드사를 선택해 주세요!");
-                    } else {
-                        alert("결제 진행 중 오류가 발생했습니다: " + (error.message || "다시 시도해 주세요."));
-                    }
+                // 결제 요청
+                await widgets.requestPayment({
+                    orderId: "ORDER_" + new Date().getTime(),
+                    orderName: "인포맥스 서비스 이용료",
+                    successUrl: window.location.origin + "/success.html",
+                    failUrl: window.location.origin + "/fail.html",
+                    customerEmail: email,
+                    customerName: name,
+                    customerMobilePhone: phone,
+                });
+            } catch (error) {
+                console.error(error);
+                // 에러 메시지에 따른 대응
+                if (error.message && error.message.includes("setAmount")) {
+                    alert("금액 설정에 오류가 있습니다. 금액을 다시 입력해 보세요.");
+                } else if (error.code === 'INVALID_CARD_COMPANY') {
+                    alert("결제하실 카드사를 선택해 주세요!");
+                } else {
+                    alert("결제 중 오류: " + (error.message || "다시 시도해 주세요."));
                 }
-            });
-        }
-    </script>
+            }
+        });
+    }
+</script>
 </body>
 </html>
