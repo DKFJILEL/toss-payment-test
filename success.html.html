@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head><meta charset="utf-8" /></head>
+<body>
+    <h2>결제 성공</h2>
+    <p id="orderId"></p><p id="amount"></p>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const requestData = {
+            paymentKey: urlParams.get("paymentKey"),
+            orderId: urlParams.get("orderId"),
+            amount: urlParams.get("amount"),
+        };
+        async function confirm() {
+            const response = await fetch("/confirm", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(requestData),
+            });
+            const json = await response.json();
+            if (!response.ok) {
+                window.location.href = `/fail.html?message=${json.message}&code=${json.code}`;
+            } else {
+                document.getElementById("orderId").textContent = "주문번호: " + requestData.orderId;
+                document.getElementById("amount").textContent = "결제금액: " + requestData.amount;
+                console.log("승인 성공:", json);
+            }
+        }
+        confirm();
+    </script>
+</body>
+</html>
